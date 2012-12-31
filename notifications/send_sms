@@ -1,0 +1,43 @@
+#!/bin/bash
+# Nagios script to send an SMS alert via Gradwell
+
+# Base settings
+TOKEN="YOURTOKEN"
+BASE="http://PARTNERNAME.voip-system.net/"
+API="api/0.9.3/sms"
+URL="$BASE$API"
+MESSAGETAIL="For assistance call xxxxxxxxxxx"
+
+function printHelpAndExit {
+	echo "usage: ./`basename $0` -d \"DESTINATION\" -f \"FROM\" -H \"HOST\" [-s \"SERVICESTATE\"] [-S \"HOSTSTATE\"] [-T TOKEN] [-D SERVICE] [-O \"STATEDETAIL\"]"
+        echo "example: ./`basename $0`  -d \"DESTINATIONNUMBER\" -f \"FROMNUMBER\" -s \"DOWN\" -H \"Web01\" -S \"DOWN\" -D HTTP -p 2 -T YOURTOKEN -O \"HTTP Timed out after 10 seconds\""
+        exit 1
+}
+
+#parse args
+while getopts "hf:d:s:O:H:S:D:p:P:" optionName; do
+	case "$optionName" in
+		h) printHelpAndExit;;
+		f) FROM="$OPTARG";;
+		d) DEST="$OPTARG";;
+		s) SERVICESTATE="$OPTARG";;
+		H) HOST="$OPTARG";;
+		S) HOSTSTATE="$OPTARG";;
+		T) TOKEN="$OPTARG";;
+		D) SERVICE="$OPTARG";;
+		O) STATEDETAIL="$OPTARG";;
+		[?]) printHelpAndExit;;
+	esac
+done
+
+# build message string
+MESSAGE="Server $HOST"
+if [ ! $SERVICE = "$" ]; then
+	MESSAGE="$MESSAGE, service $SERVICE, has changed state to $SERVICESTATE. $STATEDETAIL"
+else
+    MESSAGE="$MESSAGE, has changed state to $HOSTSTATE. $STATEDETAIL"
+fi
+MESSAGE="$MESSAGE. $MESSAGETAIL"
+
+# execute CURL call
+curl -d auth="$TOKEN" -d originator="$FROM" -d destination="$DEST" -d message="$MESSAGE" $URL

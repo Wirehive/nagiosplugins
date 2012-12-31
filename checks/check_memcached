@@ -1,0 +1,83 @@
+#!/bin/bash
+#Check a memcached instance can set and retrieve keys in a timely fashion
+
+# Defaults
+HOST="127.0.0.1"
+PORT="11211"
+KEY="nagioscheck"
+VALUE="works"
+EXPIRE="2"
+
+function printHelpAndExit {
+        echo "usage: ./`basename $0` -H HOSTNAME -p PORT [-k KEY] [-v VALUE] [-t TIMEOUT]"
+        echo "example: ./`basename $0` -H 127.0.0.1 -p 11211 -k nagioscheck -v works -t 1"
+	echo "To debug when running from CLI add -d"
+        exit 3
+}
+
+#parse args
+while getopts "hH:p:k:v:t:d" optionName; do
+        case "$optionName" in
+                h) printHelpAndExit;;
+                H) HOST="$OPTARG";;
+                p) PORT="$OPTARG";;
+                k) KEY="$OPTARG";;
+                v) VALUE="$OPTARG";;
+                t) EXPIRE="$OPTARG";;
+		d) DEBUG=true;;
+                [?]) printHelpAndExit;;
+        esac
+done
+
+BYTES="`printf $VALUE | wc -c`"
+
+# build set and get strings
+SET="set $KEY 0 $EXPIRE $BYTES\r\n$VALUE\r\nquit\r\n"
+GET="get $KEY\r\nquit\r\n"
+
+#Perform test
+STARTTIME=`date +%S.%N`
+SETOUTPUT=`echo -e "$SET" | /bin/netcat -q 2 $HOST $PORT`
+GETOUTPUT=`echo -e "$GET" | /bin/netcat -q 2 $HOST $PORT`
+STOPTIME=`date +%S.%N`
+GETCHECK=`echo $GETOUTPUT | grep "$VALUE" | wc -l`
+
+#Caluclate time for test to 4 decimal points
+export STARTTIME
+export STOPTIME
+ELAPSED=`perl -e 'print $ENV{'STOPTIME'} - $ENV{'STARTTIME'}'`
+ELAPSED=`echo $ELAPSED | cut -c1-6`
+
+#Did both the get and set return expected outputs?
+if [ $GETCHECK == "1" ] && [[ $SETOUTPUT == *STORED* ]]; then
+	RETURN="0"
+	STATUS="OK - GET matched SET"
+
+elif [ $GETCHECK == "0" ] && [[ $SETOUTPUT == *STORED* ]]; then
+        RETURN="1"
+        STATUS="WARNING - GET did not match SET"
+
+elif [ $GETCHECK == "0" ] && [[ $SETOUTPUT != *STORED* ]]; then
+        RETURN="2"
+        STATUS="CRITICAL - Error on SET"
+
+else
+	RETURN="3"
+	STATUS="UNKNOWN"
+fi
+
+#Build output and exit
+OUTPUT="Memcached $STATUS in $ELAPSED seconds | time=$ELAPSED;key=$KEY;value=$VALUE;bytes=$BYTES;expire=$EXPIRE"
+if [ $DEBUG ]; then
+	echo "**Start Time** $STARTTIME"
+	echo "**Set Command** $SET"
+	echo "**Set Output** $SETOUTPUT"
+	echo "**Get Command** $GET"
+	echo "**Get Output** $GETOUTPUT"
+	echo "**Stop Time** $STOPTIME"
+	echo "**GETCHECK** $GETCHECK"
+	echo "**RETURN** $RETURN"
+	echo "**EXISTSTATUS** $STATUS"
+fi
+echo $OUTPUT
+exit $RETURN

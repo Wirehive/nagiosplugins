@@ -1,0 +1,45 @@
+#!/bin/bash
+# Nagios script to send an SMS alert via Twilio
+
+# Base settings
+SID="YOURSID"
+TOKEN="YOURTOKEN"
+BASE="https://api.twilio.com/"
+API="2010-04-01/Accounts/$SID/SMS/Messages.xml"
+URL="$BASE$API"
+MESSAGETAIL="For assistance call xxxxxxx"
+FROM="YOURSMSNUMBER"
+
+function printHelpAndExit {
+	echo "usage: ./`basename $0` -d \"DESTINATION\" -H \"HOST\" [-s \"SERVICESTATE\"] [-S \"HOSTSTATE\"] [-D SERVICE] [-O \"STATEDETAIL\"]"
+        echo "example: ./`basename $0`  -d \"ENDUSER\" -s \"DOWN\" -H \"Web01\" -S \"DOWN\" -D HTTP -O \"HTTP Timed out after 10 seconds\""
+        exit 1
+}
+
+#parse args
+while getopts "hf:d:s:O:H:S:D:p:P:" optionName; do
+	case "$optionName" in
+		h) printHelpAndExit;;
+		f) FROM="$OPTARG";;
+		d) DEST="$OPTARG";;
+		s) SERVICESTATE="$OPTARG";;
+		H) HOST="$OPTARG";;
+		S) HOSTSTATE="$OPTARG";;
+		T) TOKEN="$OPTARG";;
+		D) SERVICE="$OPTARG";;
+		O) STATEDETAIL="$OPTARG";;
+		[?]) printHelpAndExit;;
+	esac
+done
+
+# build message string
+MESSAGE="Server $HOST"
+if [ ! $SERVICE = "$" ]; then
+	MESSAGE="$MESSAGE, service $SERVICE, has changed state to $SERVICESTATE. $STATEDETAIL"
+else
+    MESSAGE="$MESSAGE, has changed state to $HOSTSTATE. $STATEDETAIL"
+fi
+MESSAGE="$MESSAGE. $MESSAGETAIL"
+
+# execute CURL call
+curl -X POST "$URL" -d From="$FROM" -d To="$DEST" -d Body="$MESSAGE" -u $SID:$TOKEN

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Nagios script to send a Prowl PUSH alert to an Apple iDevice
+
+# Base settings
+BASE="https://api.prowlapp.com/"
+API="publicapi/add"
+URL="$BASE$API"
+MESSAGETAIL="If you require assistance please call us on xxxxxxxxx."
+PRIORITY=2
+
+function printHelpAndExit {
+	echo "usage: ./`basename $0` -d \"DESTINATIONKEY\" -f \"FROM\" -H \"HOST\" [-S \"HOSTSTATE\"] [-p PRIORITY] [-P PROVIDERKEY] [-D SERVICE] [-s \"SERVICESTATE\"]"
+        echo "example: ./`basename $0`  -d \"TARGETUSERKEY\" -f \"Monitoring\" -s \"DOWN\" -H \"Web01\" -S \"DOWN\" -D HTTP -p 2 -P PROVIDERKEY"
+	echo "Sign up for a Prowl account at http://www.prowlapp.com/"
+        exit 1
+}
+
+#parse args
+while getopts "hf:d:s:H:S:D:p:P:" optionName; do
+	case "$optionName" in
+		h) printHelpAndExit;;
+		f) FROM="$OPTARG";;
+		d) DESTINATIONKEY="$OPTARG";;
+		s) SERVICESTATE="$OPTARG";;
+		H) HOST="$OPTARG";;
+		S) HOSTSTATE="$OPTARG";;
+		p) PRIORITY="$OPTARG";;
+		P) PROVIDERKEY="$OPTARG";;
+		D) SERVICE="$OPTARG";;
+		[?]) printHelpAndExit;;
+	esac
+done
+
+# build message string
+MESSAGE="Server $HOST"
+if [ $SERVICE ]; then
+	MESSAGE="$MESSAGE, service $SERVICE, has changed state to $SERVICESTATE"
+else
+    MESSAGE="$MESSAGE, has changed state to $HOSTSTATE"
+fi
+MESSAGE="$MESSAGE. $MESSAGETAIL"
+
+# execute CURL call
+curl -d apikey="$DESTINATIONKEY" -d application="$FROM" -d event="$STATE" -d description="$MESSAGE" -d priority="$PRIORITY" -d providerkey="$PROVIDERKEY" $URL

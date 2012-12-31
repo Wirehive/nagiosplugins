@@ -1,0 +1,48 @@
+#!/bin/bash
+# Nagios script to send an IRC alert
+# Used in conjunction with irccat https://github.com/Wirehive/irccat
+# Relies on netcat
+
+# Base settings
+IRCHOST="localhost"
+IRCPORT="12345"
+
+function printHelpAndExit {
+	echo "usage: ./`basename $0` -H \"HOST\" -a \"ALIAS\" [-s \"SERVICESTATE\"] [-S \"HOSTSTATE\"] [-D SERVICE] [-O \"STATEDETAIL\"] -t \"NOTIFICATIONTYPE\""
+        exit 1
+}
+
+#parse args
+while getopts "hs:O:H:S:D:t:a:" optionName; do
+	case "$optionName" in
+		h) printHelpAndExit;;
+		s) SERVICESTATE="$OPTARG";;
+		H) HOST="$OPTARG";;
+		a) ALIAS="$OPTARG";;
+		S) HOSTSTATE="$OPTARG";;
+		D) SERVICE="$OPTARG";;
+		O) STATEDETAIL="$OPTARG";;
+		t) TYPE="$OPTARG";;
+		[?]) printHelpAndExit;;
+	esac
+done
+
+#Colorisation
+if [ "$TYPE" = "RECOVERY" ]; then
+	COLOUR="%GREEN"
+elif [ "$TYPE" = "PROBLEM" ]; then
+	COLOUR="%RED"
+else
+	COLOUR="%ORANGE"
+fi
+
+# build message string
+MESSAGE="Server $HOST"
+if [ -z "${SERVICE+xxx}" ]; then
+	MESSAGE="$TYPE Host '$COLOUR$HOST - $ALIAS%NORMAL' is $COLOUR$HOSTSTATE%NORMAL - Info: %BLUE$STATEDETAIL%NORMAL"
+else
+	MESSAGE="$TYPE Service 'Service $COLOUR$SERVICE%NORMAL' on host '$COLOUR$HOST - $ALIAS%NORMAL' is $COLOUR$SERVICESTATE%NORMAL - Info: %BLUE$STATEDETAIL%NORMAL"
+fi
+
+# execute CURL call
+/bin/echo $MESSAGE | /bin/netcat -q 1 $IRCHOST $IRCPORT
