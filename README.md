@@ -1,7 +1,6 @@
 Wirehive Nagios Plugins
 =======================
-
-This repository is a set of Nagios plugins that have been either built from scratch or improved by Wirehive. At Wirehive we make heavy use of the Nagios Core product in the core of our monitoring platform.
+This repository is a set of Nagios plugins that have been either built from scratch or improved by Wirehive. At Wirehive we make heavy use of the Nagios Core product in the core of our monitoring platform. This by no means represents the entirety of the plugins we use, however we will release mroe as the become tidy and fit for consumption :)
 
 
 check_memcached
@@ -112,4 +111,24 @@ define contact{
         host_notification_options       d,u
         service_notification_commands   notify-service-by-prowl!YourRecipientKey
         host_notification_commands      notify-host-by-prowl!YourRecipientKey
+}
+
+send_twilio_sms and send_gradwell_sms
+-------------------------------------
+Sends an SMS via either Twilio or Gradwell SMS gateways.
+Mobile number should be entered with country code, eg +44123412345678
+
+define contact{
+        contact_name                    simonSMS
+        use                             sms-contact
+        alias                           Simon Green SMS
+        service_notification_options    c
+        host_notification_options       d,u
+        service_notification_commands   notify-service-by-sms!+441234123456
+        host_notification_commands      notify-host-by-sms!+441234123456
+}
+
+define command{
+        command_name notify-host-by-sms
+        command_line $USER1$/send_twilio_sms -d $ARG1$ -H $HOSTNAME$ -S $HOSTSTATE$ -O "$HOSTOUTPUT$"
 }
