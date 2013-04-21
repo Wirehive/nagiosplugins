@@ -120,10 +120,9 @@ define contact{
         host_notification_commands      notify-host-by-prowl!YourRecipientKey
 }
 ```
-send_twilio_sms and send_gradwell_sms
--------------------------------------
-Sends an SMS via either Twilio or Gradwell SMS gateways.
-Mobile number should be entered with country code, eg +44123412345678
+send_twilio_sms
+---------------
+Sends an SMS via Twilio. Mobile number should be entered with country code, eg +44123412345678
 ```
 define contact{
         contact_name                    simonSMS
@@ -143,5 +142,30 @@ define command{
 define command{
         command_name notify-service-by-sms
         command_line $USER1$/send_twilio_sms -d $ARG1$ -s $SERVICESTATE$ -H "$HOSTNAME$" -D $SERVICEDESC$ -O "$SERVICEOUTPUT$"
+}
+```
+
+send_twilio_phone
+-----------------
+Sends a text to speech notification to a PSTN phone number via Twilio.
+```
+define contact{
+        contact_name                    simonPhone
+        use                             phone-contact
+        alias                           Simon Green Phone
+        service_notification_options    c
+        host_notification_options       d,u
+        service_notification_commands   notify-service-by-phone!+441234123456
+        host_notification_commands      notify-host-by-phone!+441234123456
+}
+```
+```
+define command{
+        command_name notify-host-by-phone
+        command_line $USER1$/send_twilio_phone -d $ARG1$ -H $HOSTNAME$ -S $HOSTSTATE$ -O "$HOSTOUTPUT$"
+}
+define command{
+        command_name notify-service-by-sms
+        command_line $USER1$/send_twilio_phone -d $ARG1$ -s $SERVICESTATE$ -H "$HOSTNAME$" -D $SERVICEDESC$ -O "$SERVICEOUTPUT$"
 }
 ```
