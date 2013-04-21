@@ -1,0 +1,62 @@
+#!/bin/bash
+# Nagios script to send a Phone alert via Twilio
+
+# Base settings
+CALLBACKURL="http://server.url/phonealerts"
+CALLBACKPATH="/var/www/phonealerts"
+TWIMLSID="TWIMLSID"
+TWIMLTOKEN="TWIMLTOKEN"
+VOICE="woman"
+LANGUAGE="en-gb"
+
+INTRO="This is the COMPANYNAME monitoring system."
+OUTRO="Goodbye."
+
+function printHelpAndExit {
+  echo "usage: ./`basename $0` -d \"DESTINATION\" -f \"FROM\" -H \"HOST\" [-S \"HOSTSTATE\"] [-D SERVICE] [-s \"SERVICESTATE\"]"
+        echo "example: ./`basename $0`  -d \"+44123456789\" -f \"+441234123456\" -s \"DOWN\" -H \"Web01\" -S \"DOWN\" -D HTTP"
+        exit 1
+}
+
+#parse args
+while getopts "hf:d:s:H:S:D:p:P:" optionName; do
+	case "$optionName" in
+		h) printHelpAndExit;;
+		f) FROM="$OPTARG";;
+		d) DESTINATION="$OPTARG";;
+		s) SERVICESTATE="$OPTARG";;
+		H) HOST="$OPTARG";;
+		S) HOSTSTATE="$OPTARG";;
+		D) SERVICE="$OPTARG";;
+		[?]) printHelpAndExit;;
+	esac
+done
+
+# build message string
+
+if [ ! $SERVICE = "$" ]; then
+	MESSAGE="Server $HOST, service $SERVICE, has changed state to $SERVICESTATE."
+else
+	MESSAGE="Server $HOST, has changed state to $HOSTSTATE."
+fi
+
+# Build TWIML
+read -d '' TWIML << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Pause />
+    <Say voice="$VOICE" language="$LANGUAGE">$INTRO</Say>
+    <Say voice="$VOICE" language="$LANGUAGE" loop="2">$MESSAGE</Say>
+    <Say voice="$VOICE" language="$LANGUAGE">$OUTRO</Say>
+</Response>
+EOF
+
+TOKEN="`date +%s`-$HOST-$DESTINATION"
+echo $TWIML > $CALLBACKPATH/$TOKEN.xml
+
+# execute CURL call
+curl -X POST 'https://api.twilio.com/2010-04-01/Accounts/$TWIMLSID/Calls.xml' \
+	--data-urlencode "From=$FROM" \
+	--data-urlencode "To=$DESTINATION" \
+	--data-urlencode "Url=$CALLBACKURL/$TOKEN.xml" \
+	-u $TWIMLSID:$TWIMLTOKEN
