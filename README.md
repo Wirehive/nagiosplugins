@@ -5,7 +5,7 @@ This repository is a set of Nagios plugins that have been either built from scra
 
 check_memcached
 ---------------
-Sets and retrieves a value from a memcached instance to test both availability and responsiveness
+Sets and retrieves a value from a memcached instance to test both availability and responsiveness. Requires netcat to be installed.
 
 ```
 define command{
