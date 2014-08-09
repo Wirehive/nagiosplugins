@@ -148,6 +148,32 @@ define command{
 send_twilio_phone
 -----------------
 Sends a text to speech notification to a PSTN phone number via Twilio.
+
+1. Create a `/phonealerts` web route on your Nagios server for Twilio to hit with a callback.
+
+    ```sh
+    $ mkdir /var/www/phonealerts
+    ```
+
+2. Update the base settings in the `send_twilio_phone` script. Set `CALLBACKURL` to the new `phonealerts` route on your Nagios server.
+
+    ```sh
+    CALLBACKURL="http://nagios.acme.com/phonealerts"
+    ```
+
+3. Set `CALLBACKPATH` to the DocumentRoot location of your `phonealerts` route.
+
+    ```sh
+    CALLBACKPATH="/var/www/phonealerts"
+    ```
+
+4. Set the Twilio Account SID and Auth Token found in your [account settings](https://www.twilio.com/user/account/settings).
+
+    ```sh
+    TWIMLSID="TWILIO-ACCOUNT-SID"
+    TWIMLTOKEN="TWILIO-AUTH-TOKEN"
+    ```
+
 ```
 define contact{
         contact_name                    simonPhone
@@ -158,14 +184,14 @@ define contact{
         service_notification_commands   notify-service-by-phone!+441234123456
         host_notification_commands      notify-host-by-phone!+441234123456
 }
-```
-```
+
 define command{
         command_name notify-host-by-phone
         command_line $USER1$/send_twilio_phone -d $ARG1$ -H $HOSTNAME$ -S $HOSTSTATE$ -O "$HOSTOUTPUT$"
 }
+
 define command{
-        command_name notify-service-by-sms
+        command_name notify-service-by-phone
         command_line $USER1$/send_twilio_phone -d $ARG1$ -s $SERVICESTATE$ -H "$HOSTNAME$" -D $SERVICEDESC$ -O "$SERVICEOUTPUT$"
 }
 ```
