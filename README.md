@@ -168,4 +168,18 @@ define command{
         command_name notify-service-by-sms
         command_line $USER1$/send_twilio_phone -d $ARG1$ -s $SERVICESTATE$ -H "$HOSTNAME$" -D $SERVICEDESC$ -O "$SERVICEOUTPUT$"
 }
+
 ```
+
+Check SNMP time in UTC
+-----------------
+Checks remote server time in UTC and compares to local system time in UTC
+```
+define command{
+        command_name snmp_remote_time_utc
+        command_line $USER1$/snmp_remote_time_utc -H $HOSTADDRESS$ -C $ARG1$ -w $ARG2$ -c $ARG3$
+}
+
+```
+
+

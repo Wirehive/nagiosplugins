@@ -1,0 +1,123 @@
+#!/bin/bash
+
+# Alastair Munro 31 Oct 2013
+#
+# Nagios plugin to report time difference as received via SNMP compared to the local time.
+# The time checks are done using utc, so it should handle time differences and daylight saving
+# without alarming. Make sure the machine this script runs on (poller/nagios host) is properly
+# setup with ntp.
+#
+# Note: all date commands must be run specifying -u (utp) to prevent local timezone shifts 
+# on the nagios server.
+#
+# Nagios exit status:
+# 0 OK
+# 1 Warning
+# 2 Critical
+# 3 Unknown
+
+# Some defaults
+community="public"
+version="2c"
+critical="120"
+warning="60"
+
+usage() {
+   echo "Usage: $0 [-h] -H host [-C community] [-w warning] [-c critical] [-v -snmp-version]"
+   echo ""
+   echo "Defaults:"
+   echo "community: $community"
+   echo "warning: $warning"
+   echo "critical: $critical"
+   exit 0
+}
+
+exit_unknown() {
+   echo "TIME UNKNOWN|"
+   exit 3
+}
+
+readargs() {
+   while getopts "hH:C:w:c:v:" arg; do
+     case $arg in
+        h) usage ;;
+        H) host=$OPTARG ;;
+        C) community=$OPTARG ;;
+        w) warning=$OPTARG ;;
+        c) critical=$OPTARG ;;
+        v) version=$OPTARG ;;
+        ?) exit_unknown ;;
+     esac
+   done
+}
+
+getandprintresults() {
+#  Get local and remote time at the same time, so we can do a diff later. Local in utc.
+   rdatestring=$( snmpget -v $version -t 60 -c $community $host HOST-RESOURCES-MIB::hrSystemDate.0 2> /dev/null | gawk '{print $NF}' )
+   ldate=$(date -u)
+
+   [ ! "$rdatestring" ] && exit_unknown
+
+   #echo $rdatestring # debug
+
+   rdate=$(echo $rdatestring | awk -F',' '{print $1,$2}')
+   hhdiff=$(echo $rdatestring | awk -F',' '{print $3}'|awk -F':' '{print $1}')
+   mmdiff=$(echo $rdatestring | awk -F',' '{print $3}'|awk -F':' '{print $2}')
+
+#  Invert the time difference so we can calculate to utc
+   if [ "$(echo $hhdiff|cut -c1-1)" == "+" ]
+   then
+      hhdiff=$(echo $hhdiff|sed 's/\+/\-/')
+   else
+      hhdiff=$(echo $hhdiff|sed 's/\-/\+/')
+   fi
+
+#  Add the + or - to the minute amount
+   mmdiff="$(echo $hhdiff|cut -c1-1)$mmdiff"
+
+   #echo $rdate #debug
+   rdate=$(date -u -d "$rdate")
+   #echo $rdate #debug
+   #echo $hhdiff #debug
+   #echo $mmdiff #debug
+   #echo "L: $ldate" #debug
+   #echo "R: $rdate" # debug
+   #rdateu=$(date -u -d "$rdate $hhdiff hours $mmdiff minutes") # debug
+   #echo "Ru: $rdateu" # debug
+
+   lepoc=$(date -u "+%s" -d "$ldate")
+   repoc=$(date -u "+%s" -d "$rdate $hhdiff hours $mmdiff minutes")
+   difference=$(($repoc - $lepoc))
+
+#  A second either way is probably network latency and checking just before the second changes
+#  Thus set to 0
+   [ $difference -eq 1 ] && difference=0
+   [ $difference -eq -1 ] && difference=0
+
+#    If the calculated difference is negative, make it positive again for comparison.
+#   difference=$(($rdate_s - $ldate_s))
+   if [ "$difference" -lt 0 ] ; then
+     positivedifference=$(($difference*-1))
+   else
+     positivedifference=$difference
+   fi
+
+   if [ "$positivedifference" -gt "$critical" ] ; then
+     echo "TIME CRITICAL - Time difference = ${difference}s|diff=$difference"
+     exit 2
+   fi
+
+   if [ "$positivedifference" -gt "$warning" ] ; then
+     echo "TIME WARNING - Time difference = ${difference}s|diff=$difference"
+     exit 1
+   fi
+
+   echo "TIME OK - Time difference = ${difference}s|diff=$difference"
+   exit 0
+}
+
+# The calls to the different functions.
+readargs "$@"
+[ ! "$host" ] && exit_unknown
+
+getandprintresults
