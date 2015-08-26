@@ -28,6 +28,10 @@ while getopts "hH:p:k:v:t:d" optionName; do
                 [?]) printHelpAndExit;;
         esac
 done
+if [ ! -x "`which nc 2>/dev/null`" ];then 
+    echo "nc needs to be installed";
+    exit 3
+fi
 
 BYTES="`printf $VALUE | wc -c`"
 
@@ -37,8 +41,8 @@ GET="get $KEY\r\nquit\r\n"
 
 #Perform test
 STARTTIME=`date +%S.%N`
-SETOUTPUT=`echo -e "$SET" | /bin/netcat -q 2 $HOST $PORT`
-GETOUTPUT=`echo -e "$GET" | /bin/netcat -q 2 $HOST $PORT`
+SETOUTPUT=`echo -e "$SET" | nc -w 2 $HOST $PORT`
+GETOUTPUT=`echo -e "$GET" | nc -w 2 $HOST $PORT`
 STOPTIME=`date +%S.%N`
 GETCHECK=`echo $GETOUTPUT | grep "$VALUE" | wc -l`
 
